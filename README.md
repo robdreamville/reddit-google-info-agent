@@ -49,5 +49,3 @@ python agent.py
 - Add new tools in `tools.py` and import them in `agent.py`.
 - Update the system prompt in `agent.py` to guide agent behavior.
 
-## License
-MIT
