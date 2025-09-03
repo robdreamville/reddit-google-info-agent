@@ -34,8 +34,8 @@ Always use your tools; never use your internal knowledge. Ground all findings in
     
     # --- Tool-specific Settings ---
     "search_limits": {
-        "subreddit_search_limit": 5,
-        "content_search_limit": 5,
+        "subreddit_search_limit": 8,
+        "content_search_limit": 8,
     },
     
     # --- Logging Settings ---
@@ -82,7 +82,7 @@ For every topic, you will:
     "tool_prompts": {
         # --- Research Tool ---
         "research_prompt": """# TASK
-Your goal is to conduct comprehensive research on \"{topic}\" and compile a strategic brief for creating content on {platform_focus}.
+Your goal is to conduct comprehensive research on \"{topic}\" and compile a strategic brief for creating content on {platform_focus}. The current date is {current_date}.
 
 # RESEARCH CHECKLIST
 1.  **Key Facts**: Identify the most important facts, stats, and recent news from authoritative sources.
@@ -90,17 +90,39 @@ Your goal is to conduct comprehensive research on \"{topic}\" and compile a stra
 3.  **Content Angles**: Identify 2-3 specific, engaging angles (e.g., controversies, human-interest stories, surprising facts).
 
 # REQUIRED OUTPUT FORMAT - Make sure to fill in all these fields with the data found using tools.
-Present your findings as a structured Markdown report. Do not include conversational filler.
+Present your findings as a structured Markdown report. Do not include conversational filler. Do not include your thought process.
 
 ### Key Factual Points
 - Bulleted list of 3-5 essential facts from your research.
 
 ### Reddit Sentiment Analysis
 - **Overall Sentiment**: A single descriptor (e.g., Positive, Negative, Mixed, Divisive).
-- **Dominant Themes**: A bulleted list of 2-4 recurring topics of discussion.
+- **Dominant Themes**: A bulleted list of 4-6 recurring topics of discussion.
 
 ### Proposed Content Angles
 - A bulleted list of 2-3 distinct angles. For each, provide a 1-sentence explanation of why it's compelling.""",
+
+        "trending_research_prompt": """# TASK
+Your goal is to ONLY research trending topics specifically related to \"{category}\". Ignore all unrelated trends. The current date is {current_date}.
+
+# RESEARCH CHECKLIST
+1.  **Identify Trends**: Use your tools to find 3-5 current, rising, or popular trends.
+2.  **Analyze Sentiment**: Briefly describe the public sentiment around each trend.
+3.  **Suggest Angles**: For each trend, propose a compelling content angle.
+
+# REQUIRED OUTPUT FORMAT
+Present your findings as a structured Markdown report. Do Not include your thought process. Do not include conversational filler.
+
+### Trending Topics
+- **Trend 1**: [Name of Trend]
+  - **Sentiment**: [e.g., Positive, Controversial, Growing]
+  - **Content Angle**: [A compelling angle for a video or article]
+- **Trend 2**: [Name of Trend]
+  - **Sentiment**: [e.g., Positive, Controversial, Growing]
+  - **Content Angle**: [A compelling angle for a video or article]
+- **Trend 3**: [Name of Trend]
+  - **Sentiment**: [e.g., Positive, Controversial, Growing]
+  - **Content Angle**: [A compelling angle for a video or article]""",
 
         # --- Video Content Tool (YouTube/TikTok) ---
         "content_generation_prompt":"""# SCRIPT BRIEF
@@ -131,21 +153,26 @@ Present your findings as a structured Markdown report. Do not include conversati
 - **Delivery**: Write for a natural, human voiceover. Sentences must be short and easy to read for captions.""",
 
         # --- Article Generation Tool ---
-        "article_generation_prompt":"""# ARTICLE BRIEF
+        "article_generation_prompt": """# TASK
+Write a complete, polished article based on the following details:
+
 - **Topic**: {topic}
 - **Tone**: {tone_description}
 - **Length**: {optimal_length}
+- **Style Guidelines**: {style}
+- **Research Summary**: {research_summary}
 
-# STYLE GUIDELINES
-{style}
-
-# RESEARCH SUMMARY
-{research_summary}
-
-# ARTICLE REQUIREMENTS
-- **Use the Research**: Your article MUST be based on the provided RESEARCH SUMMARY.
-- **Structure**: The article must have a compelling title, an introduction, a well-organized body with clear headings, and a conclusion.
-- **Content**: The content must be informative, valuable, and SEO-friendly.""",
+# REQUIREMENTS
+- The article MUST be based on the provided Research Summary.
+- The article MUST be written as if it is ready for publication, not as a brief or outline.
+- Include:
+  - A compelling title
+  - An engaging introduction
+  - A well-organized body with clear headings and subheadings
+  - A concise conclusion
+- Ensure the article is informative, valuable, and SEO-friendly.
+- Do not include meta sections like "ARTICLE BRIEF" or "STYLE GUIDELINES" in the output.
+""",
 
         # --- X (Twitter) Thread Generation Tool ---
         "x_thread_generation_prompt": """# X THREAD BRIEF
@@ -181,6 +208,7 @@ You are the final quality check, a brutally honest content critic. Your sole pur
 3.  **Actionable Fix**: If you voted **TRASH**, provide a single, high-impact suggestion to fix it. If it's unsalvageable, state that.
 
 # CONTENT FOR REVIEW
+- **Current Date**: {current_date}
 - **Platform**: {platform}
 - **Content**: {content_text}"""
     },
@@ -250,11 +278,11 @@ You are the final quality check, a brutally honest content critic. Your sole pur
     "tone_settings": {
         "conversational": "Write as if you're talking directly to a friend. Use simple language, ask questions, and adopt a warm, informal, and friendly approach.",
         "authoritative": "Project confidence and expertise. Use clear, direct statements and well-reasoned arguments. The language should be formal, credible, and objective.",
-        "energetic": "Use short, punchy sentences and an enthusiastic, upbeat, and vibrant style. Employ exclamation points and dynamic language to create excitement.",
         "inspirational": "Aim to motivate and uplift the audience. Use positive language, powerful stories, and a hopeful, encouraging, and empowering perspective.",
         "humorous": "Use wit, jokes, and clever wordplay to entertain. The style should be lighthearted and funny, but still on-topic.",
         "intriguing": "Build curiosity and suspense. Use questions, teasers, and foreshadowing to make the audience eager to know more. The style is suspenseful and thought-provoking.",
-        "suspenseful": "Create a sense of dread and anticipation. Use evocative, atmospheric language, short, tense sentences, and reveal information slowly to build suspense and unease."
+        "suspenseful": "Create a sense of dread and anticipation. Use evocative, atmospheric language, short, tense sentences, and reveal information slowly to build suspense and unease.",
+        "horror": "Evoke fear, dread, and unease. Use vivid, eerie descriptions, unsettling imagery, and a darker, slower pacing. The language should be chilling, immersive, and provoke a visceral reaction, leaving the audience disturbed or spooked."
     },
     
     # --- Logging Settings ---

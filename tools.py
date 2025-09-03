@@ -151,12 +151,14 @@ def research_topic_for_content(topic: str, platform_focus: str = "both") -> str:
         # Import here to avoid circular imports
         from reddit_agent import RedditAgent
         from config import get_tool_prompt
+        from datetime import datetime
         
         # Get research prompt from config
         research_prompt = get_tool_prompt(
             "research_prompt", 
             topic=topic, 
-            platform_focus=platform_focus
+            platform_focus=platform_focus,
+            current_date=datetime.utcnow().isoformat()
         )
         
         # Create research agent instance
@@ -169,6 +171,37 @@ def research_topic_for_content(topic: str, platform_focus: str = "both") -> str:
         
     except Exception as e:
         return f"Error during research: {str(e)}"
+
+@tool
+def research_trending_topics(category: str = "general") -> str:
+    """
+    Research trending topics using Google search and Reddit to find what is currently popular.
+    
+    Args:
+        category: The category to research trends in (e.g., "AI", "gaming", "finance"). Defaults to "general".
+    
+    Returns:
+        A report of trending topics, sentiment, and content angles.
+    """
+    try:
+        from reddit_agent import RedditAgent
+        from config import get_tool_prompt
+        from datetime import datetime
+        
+        trending_prompt = get_tool_prompt(
+            "trending_research_prompt", 
+            category=category,
+            current_date=datetime.utcnow().isoformat()
+        )
+        
+        research_agent = RedditAgent()
+        
+        trending_results = research_agent.chat(trending_prompt)
+        
+        return f"Trending Topics Report (Category: {category}):\n{trending_results}"
+        
+    except Exception as e:
+        return f"Error during trending research: {str(e)}"
 
 @tool
 def generate_platform_content(
@@ -257,10 +290,13 @@ def analyze_content_performance(content_text: str, platform: str) -> str:
         from langchain_google_genai import ChatGoogleGenerativeAI
         import os
 
+        current_date = datetime.utcnow().isoformat()
+
         analysis_prompt = get_tool_prompt(
             "content_analysis_prompt",
             content_text=content_text,
-            platform=platform
+            platform=platform,
+            current_date=current_date
         )
         
         config = get_content_creator_config()

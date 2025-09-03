@@ -15,6 +15,7 @@ from langgraph.prebuilt import ToolNode
 
 from tools import (
     research_topic_for_content, 
+    research_trending_topics, 
     generate_platform_content, 
     analyze_content_performance,
     generate_article,
@@ -80,6 +81,7 @@ class ContentCreatorAgent:
         # Define tools
         self.tools = [
             research_topic_for_content, 
+            research_trending_topics,
             generate_platform_content, 
             analyze_content_performance,
             generate_article,
@@ -269,6 +271,28 @@ class ContentCreatorAgent:
         except Exception as e:
             return f"Analysis error: {str(e)}"
     
+    def research_trending(self, category: str = "general") -> str:
+        """Research trending topics with logging"""
+        start_time = time.time()
+        try:
+            results = research_trending_topics.invoke({"category": category})
+            if self.config["logging"]["enabled"]:
+                ContentCreatorLogger.log_research_call({
+                    "topic": f"trending_{category}",
+                    "platform_focus": category,
+                    "results_length": len(results) if results else 0,
+                    "results_preview": results[:200] if results else "",
+                    "latency": round(time.time() - start_time, 3), "success": True
+                })
+            return results
+        except Exception as e:
+            error_msg = f"Trending research error: {str(e)}"
+            self._log_error_separately({
+                "error_type": "trending_research_error", "category": category,
+                "error": error_msg, "latency": round(time.time() - start_time, 3)
+            })
+            return error_msg
+    
     def get_analytics(self) -> Dict[str, any]:
         """Get analytics for this agent's usage"""
         if self.config["logging"]["enabled"]:
@@ -326,10 +350,9 @@ class ContentCreatorAgent:
                         self._display_content(result)
                 
                 elif choice == "3":
-                    platform = input("Platform to research (youtube/tiktok/article/x/all): ").strip() or "all"
-                    research_query = f"trending topics and viral content ideas for {platform}"
-                    print(f"\n🔍 Researching trends for {platform}...")
-                    trends = self.research_topic(research_query, platform)
+                    category = input("Enter category to research (e.g., AI, gaming, or leave blank for general): ").strip() or "general"
+                    print(f"\n🔍 Researching trends for {category}...")
+                    trends = self.research_trending(category)
                     print(f"\n📈 Current Trends:\n{trends}")
                 
                 elif choice == "4":
