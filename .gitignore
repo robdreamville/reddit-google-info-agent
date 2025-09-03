@@ -12,3 +12,7 @@ logs/
 
 # VSCode
 .vscode/
+
+# results
+x_threads/
+articles/

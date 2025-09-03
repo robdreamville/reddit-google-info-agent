@@ -4,59 +4,69 @@ from typing import TypedDict, Annotated, List
 import time
 import traceback
 
-from langchain_core.messages import AnyMessage
+from langchain_core.messages import AnyMessage, SystemMessage, HumanMessage, ToolMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.messages import AnyMessage, SystemMessage, HumanMessage
 
 from langgraph.graph import START, StateGraph
 from langgraph.prebuilt import tools_condition
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode
 
-from tools import search_subreddits, search_subreddit_content, google_grounding_search, get_current_date  # Import the tool
-from logger import AgentLogger
-
+from tools import search_subreddits, search_subreddit_content, google_grounding_search, get_current_date
+from config import get_reddit_agent_config, get_shared_config
+from content_logger import ContentCreatorLogger
 from datetime import datetime
 
-
-# ADDED: Load environment variables
+# Load environment variables
 load_dotenv()
 
-class Agent:
+class RedditAgent:
     def __init__(self):
-        """Initialize agent with Gemini and tools"""
+        """Initialize agent with Gemini and tools from config"""
         
+        # Load configuration
+        self.config = get_reddit_agent_config()
+        self.shared_config = get_shared_config()
+        
+        # Validate environment
         self.api_key = os.getenv("GEMINI_API_KEY")
         if not self.api_key:
             raise ValueError("GEMINI_API_KEY environment variable not set")
-        # Default system message - you can change this easily
+            
+        # Check required environment variables
+        for var in self.shared_config["environment"]["required_env_vars"]:
+            if not os.getenv(var):
+                raise ValueError(f"{var} environment variable not set")
 
-        self.system_message = """You are a helpful AI assistant specialized in searching and analyzing information using all available tools, including Google and Reddit.
-For every query, first search for the latest news or authoritative sources using Google or other news tools.
-Then, search Reddit to understand the general public's thoughts, discussions, and community sentiment about the topic.
-Always combine and synthesize information from both news sources and Reddit to provide a comprehensive answer.
-Your internal knowledge is outdated, so you must use these tools to find new, relevant, and up-to-date information for every user query.
-Always think step by step, explain your reasoning, and use all available tools to verify, supplement, and combine your answers.
-If you do not know the answer, do not give up—try again by rephrasing your query, searching for new or top content, or using different tools and sources.
-Never rely solely on your own knowledge; always seek the latest information from multiple sources.
-If your first attempt is incomplete, continue searching, combining, or synthesizing information until you have a thorough answer.
-If you cannot find direct results, provide related information, explain why data may be missing, and suggest helpful next steps or alternative queries."""
-
-        # ADDED: Memory to store conversation history
-        # Starts with system message so agent knows its role from the beginning
+        # Initialize memory with system message from config
+        self.system_message = self.config["system_prompt"]
         self.memory: List[AnyMessage] = [SystemMessage(content=self.system_message)]
 
-        self.llm = ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash",
-            temperature=0.4,
-            api_key=self.api_key,
-        )
+        # Initialize LLM with config settings
+        model_config = self.config["model"]
+        llm_kwargs = {
+            "model": model_config["name"],
+            "temperature": model_config["temperature"],
+            "api_key": self.api_key,
+        }
+        
+        # Add optional parameters if specified
+        if model_config.get("max_tokens"):
+            llm_kwargs["max_tokens"] = model_config["max_tokens"]
+        if model_config.get("top_p"):
+            llm_kwargs["top_p"] = model_config["top_p"]
+            
+        self.llm = ChatGoogleGenerativeAI(**llm_kwargs)
 
         self.tools = [search_subreddits, search_subreddit_content, google_grounding_search, get_current_date]
-
         self.chat_with_tools = self.llm.bind_tools(self.tools)
-
         self.agent = self._build_agent()
+        
+        # Initialize logger
+        if self.config["logging"]["enabled"]:
+            # Note: We instantiate the logger but use the static method for logging
+            # This could be refactored to use the instance logger if desired
+            self.logger = ContentCreatorLogger(self.config["logging"]["log_file"])
 
     def _build_agent(self):
         """Build the LangGraph agent workflow"""
@@ -87,7 +97,7 @@ If you cannot find direct results, provide related information, explain why data
         builder.add_edge(START, "assistant")
         builder.add_conditional_edges(
             "assistant",
-            tools_condition,  # If tools needed, go to tools; otherwise end
+            tools_condition,
         )
         builder.add_edge("tools", "assistant")
         
@@ -95,21 +105,21 @@ If you cannot find direct results, provide related information, explain why data
 
     def chat(self, message):
         """Chat with the agent and log each run with metrics and tool calls."""
-        import time, traceback
-        from langchain_core.messages import ToolMessage
-
         current_date = datetime.utcnow().isoformat()
         
         self.memory.append(SystemMessage(content=f"Today's date is {current_date}"))
         self.memory.append(HumanMessage(content=message))
         start_time = time.time()
+        
         run_log = {
             "user_message": message,
             "tool_calls": [],
             "error": None,
             "token_usage": None,
             "latency": None,
+            "success": False
         }
+        
         try:
             result = self.agent.invoke({"messages": self.memory})
             messages = result["messages"]
@@ -130,44 +140,52 @@ If you cannot find direct results, provide related information, explain why data
             usage_metadata = getattr(agent_response, "usage_metadata", None)
             if usage_metadata and "total_tokens" in usage_metadata:
                 run_log["token_usage"] = usage_metadata["total_tokens"]
-            else:
-                run_log["token_usage"] = None
-
+            
             run_log["agent_response"] = agent_response.content
+            run_log["success"] = True
+            
         except Exception as e:
             run_log["error"] = traceback.format_exc()
             run_log["agent_response"] = f"[ERROR] {str(e)}"
+            
         finally:
             run_log["latency"] = round(time.time() - start_time, 3)
-            AgentLogger.log_run(run_log)
+            if self.config["logging"]["enabled"]:
+                ContentCreatorLogger.log_reddit_run(run_log)
 
         return run_log["agent_response"]
 
-    # ADDED: Interactive chat method for testing
     def interactive_chat(self):
         """Start interactive chat session with memory"""
-        print("🤖 Agent ready! Type 'quit' to exit.")
-        print("-" * 40)
+        print("🤖 Reddit Agent Ready!")
+        print(f"📊 Logging: {'Enabled' if self.config['logging']['enabled'] else 'Disabled'}")
+        if self.config["logging"]["enabled"]:
+            print(f"📁 Log File: {self.config['logging']['log_file']}")
+        print(f"🤖 Model: {self.config['model']['name']} (temp: {self.config['model']['temperature']})")
+        print("Type 'quit' to exit.")
+        print("-" * 60)
+        
         while True:
             try:
                 user_input = input("\nYou: ").strip()
-                # Exit commands
                 if user_input.lower() in ['quit', 'exit', 'q']:
                     print("Goodbye!")
                     break
-                # Skip empty input
                 if not user_input:
                     continue
-                # Chat with memory
                 response = self.chat(user_input)
                 print(f"Agent: {response}")
             except KeyboardInterrupt:
                 print("\nGoodbye!")
                 break
+            except Exception as e:
+                print(f"An error occurred: {str(e)}")
 
 # Simple test function
 if __name__ == "__main__":
-    # Create agent
-    agent = Agent()
-    # ADDED: Start interactive mode instead of single test
-    agent.interactive_chat()
+    try:
+        agent = RedditAgent()
+        agent.interactive_chat()
+    except Exception as e:
+        print(f"❌ Error initializing Reddit Agent: {str(e)}")
+        print("Make sure your .env file and config.py are set up correctly.")

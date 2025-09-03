@@ -133,3 +133,293 @@ def google_grounding_search(query: str) -> str:
         return f"Error: google-genai library not available. Import error: {str(e)}"
     except Exception as e:
         return f"Error performing grounded search: {str(e)}"
+
+@tool
+def research_topic_for_content(topic: str, platform_focus: str = "both") -> str:
+    """
+    Research a topic using Google search and Reddit to gather current information,
+    trends, discussions, and public sentiment for content creation.
+    
+    Args:
+        topic: The topic to research (e.g., "AI news", "crypto trends", "tech reviews")
+        platform_focus: Target platform - "youtube", "tiktok", or "both"
+    
+    Returns:
+        Comprehensive research findings including news, trends, and community discussions
+    """
+    try:
+        # Import here to avoid circular imports
+        from reddit_agent import RedditAgent
+        from config import get_tool_prompt
+        
+        # Get research prompt from config
+        research_prompt = get_tool_prompt(
+            "research_prompt", 
+            topic=topic, 
+            platform_focus=platform_focus
+        )
+        
+        # Create research agent instance
+        research_agent = RedditAgent()
+        
+        # Use the Reddit agent to research the topic with config prompt
+        research_results = research_agent.chat(research_prompt)
+        
+        return f"Research Results for '{topic}' (Platform focus: {platform_focus}):\n{research_results}"
+        
+    except Exception as e:
+        return f"Error during research: {str(e)}"
+
+@tool
+def generate_platform_content(
+    topic: str,
+    platform: str,
+    research_summary: str,
+    content_type: str = "educational",
+    tone: str = "engaging"
+) -> str:
+    """
+    Generate ready-to-use script content for YouTube or TikTok videos.
+    
+    Args:
+        topic: Main topic/subject for the content.
+        platform: "youtube" or "tiktok".
+        research_summary: A summary of research findings for context.
+        content_type: "educational", "how-to", "storytelling", "news", "review", "comparison".
+        tone: "conversational", "authoritative", "energetic", "inspirational", "humorous", "intriguing", "suspenseful".
+    
+    Returns:
+        Formatted script with timing cues, emphasis points, and platform optimization.
+    """
+    
+    try:
+        from config import get_content_creator_config, get_tool_prompt
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        import os
+
+        config = get_content_creator_config()
+        platform_specs = config["platform_specs"]
+        content_types = config["content_types"]
+        tone_settings = config["tone_settings"]
+        
+        specs = platform_specs.get(platform.lower(), platform_specs["youtube"])
+        
+        content_type_details = content_types.get(content_type, {})
+        content_description = content_type_details.get("description", "")
+        content_structure = content_type_details.get("structure", "")
+
+        tone_description = tone_settings.get(tone, "")
+
+        duration = specs.get("optimal_duration", "30-60s")
+
+        content_prompt = get_tool_prompt(
+            "content_generation_prompt",
+            topic=topic,
+            platform=platform.upper(),
+            research_summary=research_summary,
+            content_description=content_description,
+            content_structure=content_structure,
+            tone_description=tone_description,
+            duration=duration,
+            hook_time=specs["hook_time"],
+            pace=specs["pace"],
+            style=specs["style"]
+        )
+        
+        model_config = config["model"]
+        llm = ChatGoogleGenerativeAI(
+            model=model_config["name"],
+            temperature=model_config["temperature"],
+            api_key=os.getenv("GEMINI_API_KEY")
+        )
+
+        response = llm.invoke(content_prompt)
+        return response.content
+        
+    except Exception as e:
+        return f"Error generating content: {str(e)}"
+
+@tool
+def analyze_content_performance(content_text: str, platform: str) -> str:
+    """
+    Analyze content for potential performance metrics and optimization suggestions.
+    
+    Args:
+        content_text: The script/content to analyze
+        platform: Target platform ("youtube" or "tiktok")
+    
+    Returns:
+        Analysis with engagement predictions and optimization tips
+    """
+    
+    try:
+        from config import get_tool_prompt, get_content_creator_config
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        import os
+
+        analysis_prompt = get_tool_prompt(
+            "content_analysis_prompt",
+            content_text=content_text,
+            platform=platform
+        )
+        
+        config = get_content_creator_config()
+        model_config = config["model"]
+        
+        llm = ChatGoogleGenerativeAI(
+            model=model_config["name"],
+            temperature=model_config["temperature"],
+            api_key=os.getenv("GEMINI_API_KEY")
+        )
+        
+        response = llm.invoke(analysis_prompt)
+        return response.content
+        
+    except Exception as e:
+        return f"Error during content analysis: {str(e)}"
+
+@tool
+def generate_article(topic: str, research_summary: str, tone: str, style: str, optimal_length: str) -> str:
+    """
+    Generates a full article based on a topic.
+    
+    Args:
+        topic: The main subject of the article.
+        research_summary: A summary of research findings for context.
+        tone: "conversational", "authoritative", "energetic", "inspirational", "humorous", "intriguing", "suspenseful".
+        style: The desired writing style.
+        optimal_length: The target length for the article.
+        
+    Returns:
+        The generated article as a string.
+    """
+    try:
+        from config import get_content_creator_config, get_tool_prompt
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        import os
+
+        config = get_content_creator_config()
+        tone_settings = config["tone_settings"]
+        
+        tone_description = tone_settings.get(tone, "")
+
+        prompt = get_tool_prompt(
+            "article_generation_prompt",
+            topic=topic,
+            research_summary=research_summary,
+            tone_description=tone_description,
+            style=style,
+            optimal_length=optimal_length
+        )
+        
+        model_config = config["model"]
+        llm = ChatGoogleGenerativeAI(
+            model=model_config["name"],
+            temperature=model_config["temperature"],
+            api_key=os.getenv("GEMINI_API_KEY")
+        )
+
+        response = llm.invoke(prompt)
+        return response.content
+        
+    except Exception as e:
+        return f"Error generating article: {str(e)}"
+
+@tool
+def generate_x_thread(topic: str, research_summary: str, tone: str, style: str, thread_length: str) -> str:
+    """
+    Generates an X (Twitter) thread based on a topic.
+    
+    Args:
+        topic: The main subject of the thread.
+        research_summary: A summary of research findings for context.
+        tone: "conversational", "authoritative", "energetic", "inspirational", "humorous", "intriguing", "suspenseful".
+        style: The desired writing style.
+        thread_length: The target number of posts in the thread.
+        
+    Returns:
+        The generated thread as a single string, with posts separated by '---'.
+    """
+    try:
+        from config import get_content_creator_config, get_tool_prompt
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        import os
+
+        config = get_content_creator_config()
+        tone_settings = config["tone_settings"]
+        
+        tone_description = tone_settings.get(tone, "")
+
+        prompt = get_tool_prompt(
+            "x_thread_generation_prompt",
+            topic=topic,
+            research_summary=research_summary,
+            tone_description=tone_description,
+            style=style,
+            thread_length=thread_length
+        )
+        
+        model_config = config["model"]
+        llm = ChatGoogleGenerativeAI(
+            model=model_config["name"],
+            temperature=model_config["temperature"],
+            api_key=os.getenv("GEMINI_API_KEY")
+        )
+
+        response = llm.invoke(prompt)
+        return response.content
+        
+    except Exception as e:
+        return f"Error generating X thread: {str(e)}"
+
+@tool
+def save_content_to_file(content: str, folder: str, topic: str, platform: str) -> str:
+    """
+    Saves the given content to a file in the specified folder.
+    
+    Args:
+        content: The text content to save.
+        folder: The subfolder to save the file in (e.g., 'articles', 'x_threads').
+        topic: The topic of the content, used for the filename.
+        platform: The platform the content was generated for (e.g., 'article', 'x').
+        
+    Returns:
+        The path to the saved file or an error message.
+    """
+    try:
+        import os
+        import re
+        from datetime import datetime
+
+        # Create the folder if it doesn't exist
+        os.makedirs(folder, exist_ok=True)
+        
+        # Sanitize the topic to create a valid filename
+        # Remove special characters, replace spaces with underscores
+        sanitized_topic = re.sub(r'[^\w\s-]', '', topic).strip().replace(' ', '_')
+        sanitized_topic = re.sub(r'[-\s]+', '_', sanitized_topic).lower()
+
+        # Create a timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        # Determine file extension
+        ext = ".txt"
+        if platform == "article":
+            ext = ".md"
+        elif platform == "x":
+            ext = ".txt"
+
+        # Construct filename
+        filename = f"{timestamp}_{sanitized_topic}{ext}"
+        
+        # Construct the full file path
+        file_path = os.path.join(folder, filename)
+        
+        # Write the content to the file
+        with open(file_path, 'w', encoding='utf-8') as f:
+            f.write(content)
+            
+        return f"Successfully saved content to {file_path}"
+
+    except Exception as e:
+        return f"Error saving file: {str(e)}"
