@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeuraStream - AI Agent Content Engine</title>
+    <meta name="description" content="State of the art content generation engine utilizing Gemini, Reddit APIs, and LangGraph with real-time log monitoring and analytics.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="glass-bg"></div>
+    
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="brand">
+                <span class="logo-icon">⚡</span>
+                <h1 class="logo-text" id="app-heading">NeuraStream</h1>
+            </div>
+            
+            <nav class="nav-links">
+                <button class="nav-btn active" id="btn-tab-dashboard" onclick="switchTab('dashboard')">
+                    <span class="btn-icon">📊</span> Dashboard
+                </button>
+                <button class="nav-btn" id="btn-tab-generate" onclick="switchTab('generate')">
+                    <span class="btn-icon">🎬</span> Generator
+                </button>
+                <button class="nav-btn" id="btn-tab-history" onclick="switchTab('history')">
+                    <span class="btn-icon">📁</span> Log History
+                </button>
+                <button class="nav-btn" id="btn-tab-settings" onclick="switchTab('settings')">
+                    <span class="btn-icon">⚙️</span> Settings
+                </button>
+            </nav>
+
+            <div class="system-status">
+                <div class="status-indicator" id="health-indicator">
+                    <span class="indicator-dot"></span>
+                    <span class="indicator-text" id="health-text">Checking System...</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- HEADER -->
+            <header class="top-header">
+                <div class="header-info">
+                    <h2 class="section-title" id="page-title">Dashboard</h2>
+                    <p class="section-subtitle" id="page-subtitle">Real-time performance and usage metrics</p>
+                </div>
+            </header>
+
+            <!-- TABS -->
+            <div class="tab-content active" id="tab-dashboard">
+                <!-- Analytics Cards -->
+                <div class="metrics-grid">
+                    <div class="glass-card metric-card">
+                        <div class="metric-info">
+                            <span class="metric-label">Total Runs</span>
+                            <h3 class="metric-value" id="stat-total-runs">-</h3>
+                        </div>
+                        <span class="metric-icon">🔄</span>
+                    </div>
+                    <div class="glass-card metric-card">
+                        <div class="metric-info">
+                            <span class="metric-label">Success Rate</span>
+                            <h3 class="metric-value" id="stat-success-rate">-%</h3>
+                        </div>
+                        <span class="metric-icon">✨</span>
+                    </div>
+                    <div class="glass-card metric-card">
+                        <div class="metric-info">
+                            <span class="metric-label">Avg Latency</span>
+                            <h3 class="metric-value" id="stat-avg-latency">-s</h3>
+                        </div>
+                        <span class="metric-icon">⏱️</span>
+                    </div>
+                    <div class="glass-card metric-card">
+                        <div class="metric-info">
+                            <span class="metric-label">Active Model</span>
+                            <h3 class="metric-value model-name" id="stat-active-model">-</h3>
+                        </div>
+                        <span class="metric-icon">🤖</span>
+                    </div>
+                </div>
+
+                <!-- Charts Grid -->
+                <div class="charts-grid">
+                    <div class="glass-card chart-card">
+                        <h4>Platform Distribution</h4>
+                        <div class="chart-wrapper">
+                            <canvas id="chart-platforms"></canvas>
+                        </div>
+                    </div>
+                    <div class="glass-card chart-card">
+                        <h4>Content Type Focus</h4>
+                        <div class="chart-wrapper">
+                            <canvas id="chart-content-types"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Activities -->
+                <div class="glass-card history-card">
+                    <h4>Recent Generated Posts</h4>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>Topic</th>
+                                    <th>Platforms</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="recent-runs-table-body">
+                                <tr>
+                                    <td colspan="5" class="table-loading">Loading recent posts...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: GENERATOR -->
+            <div class="tab-content" id="tab-generate">
+                <div class="generator-layout">
+                    <!-- Controls Column -->
+                    <div class="glass-card form-column">
+                        <h3>Generator Settings</h3>
+                        <p class="form-desc">Define your parameters or expand advanced tweaks to customize your output.</p>
+                        
+                        <form id="generate-form" onsubmit="event.preventDefault(); startGeneration();">
+                            <div class="form-group">
+                                <label for="gen-topic">Topic / Keyword</label>
+                                <input type="text" id="gen-topic" placeholder="e.g., SpaceX Starship Orbital Flight Test" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Target Platforms</label>
+                                <div class="platforms-selector">
+                                    <label class="chip-checkbox">
+                                        <input type="checkbox" name="gen-platforms" value="youtube" id="check-yt">
+                                        <span class="chip-label">📺 YouTube</span>
+                                    </label>
+                                    <label class="chip-checkbox">
+                                        <input type="checkbox" name="gen-platforms" value="tiktok" id="check-tt">
+                                        <span class="chip-label">🎵 TikTok</span>
+                                    </label>
+                                    <label class="chip-checkbox">
+                                        <input type="checkbox" name="gen-platforms" value="article" id="check-art">
+                                        <span class="chip-label">📝 Article</span>
+                                    </label>
+                                    <label class="chip-checkbox">
+                                        <input type="checkbox" name="gen-platforms" value="x" id="check-x">
+                                        <span class="chip-label">🐦 X (Twitter)</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group half-width">
+                                    <label for="gen-content-type">Content Type</label>
+                                    <select id="gen-content-type">
+                                        <option value="educational">Educational</option>
+                                        <option value="how-to">How-to Guide</option>
+                                        <option value="storytelling">Storytelling</option>
+                                        <option value="news">News / Update</option>
+                                        <option value="review">Review</option>
+                                        <option value="comparison">Comparison</option>
+                                    </select>
+                                </div>
+                                <div class="form-group half-width">
+                                    <label for="gen-tone">Creative Tone</label>
+                                    <select id="gen-tone">
+                                        <option value="conversational">Conversational</option>
+                                        <option value="authoritative">Authoritative</option>
+                                        <option value="inspirational">Inspirational</option>
+                                        <option value="humorous">Humorous</option>
+                                        <option value="intriguing">Intriguing</option>
+                                        <option value="suspenseful">Suspenseful</option>
+                                        <option value="horror">Horror</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-group" id="video-duration-group" style="display: none;">
+                                <label for="gen-duration">Video Duration (YouTube/TikTok)</label>
+                                <input type="text" id="gen-duration" placeholder="e.g., 30-60s or 1-3min">
+                            </div>
+
+                            <!-- Advanced Accordion -->
+                            <div class="accordion-container">
+                                <button type="button" class="accordion-header" id="btn-toggle-tweaks" onclick="toggleAccordion()">
+                                    <span>⚙️ Advanced Tweak Controls</span>
+                                    <span class="accordion-arrow">▼</span>
+                                </button>
+                                <div class="accordion-content" id="tweak-controls-panel">
+                                    <div class="form-group">
+                                        <label for="gen-temp">LLM Temperature Override: <span id="temp-val">Default</span></label>
+                                        <input type="range" id="gen-temp" min="0.1" max="1.0" step="0.05" value="0.7" oninput="updateTempVal(this.value)">
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label for="gen-custom-notes">Custom Instructions / Topic Tweaks</label>
+                                        <textarea id="gen-custom-notes" rows="3" placeholder="e.g., Focus on local community opinions. Keep it mysterious. Mention the recent tweet by Musk."></textarea>
+                                    </div>
+
+                                    <div class="form-group">
+                                        <label for="gen-system-prompt">System Prompt Custom Override</label>
+                                        <textarea id="gen-system-prompt" rows="4" placeholder="Leave blank to use default. Custom guidelines for how the agent acts."></textarea>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="glowing-btn" id="btn-generate-content">
+                                <span class="glowing-text">🚀 Run Agent Engine</span>
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Output Console Column -->
+                    <div class="console-column">
+                        <!-- Live Progress Console -->
+                        <div class="glass-card console-card">
+                            <div class="console-header">
+                                <span class="console-title">🖥️ Agent Log Stream</span>
+                                <span class="console-dot-loader" id="console-pulse"></span>
+                            </div>
+                            <div class="console-terminal" id="console-logs">
+                                <div class="terminal-line placeholder">System ready. Enter topic details and click Generate to start...</div>
+                            </div>
+                        </div>
+
+                        <!-- Main Results Panel -->
+                        <div class="glass-card result-card" id="generation-results-panel" style="display: none;">
+                            <div class="result-header">
+                                <h3>Generated Artifacts</h3>
+                                <div class="result-tabs" id="generated-tabs">
+                                    <!-- Dynamic Tabs -->
+                                </div>
+                            </div>
+                            
+                            <div class="result-body" id="generated-contents">
+                                <!-- Dynamic Contents -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: LOG HISTORY -->
+            <div class="tab-content" id="tab-history">
+                <div class="glass-card history-container">
+                    <div class="history-filters">
+                        <div class="search-box">
+                            <span class="search-icon">🔍</span>
+                            <input type="text" id="history-search" placeholder="Search topic..." oninput="filterHistory()">
+                        </div>
+                        <div class="select-box">
+                            <select id="history-filter-type" onchange="filterHistory()">
+                                <option value="all">All Logs</option>
+                                <option value="content_creation">Content Creations</option>
+                                <option value="research">Research Calls</option>
+                                <option value="error">Errors</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>Log Type</th>
+                                    <th>Session ID</th>
+                                    <th>Details</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="full-history-table-body">
+                                <tr>
+                                    <td colspan="5" class="table-loading">Loading log files...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: SETTINGS -->
+            <div class="tab-content" id="tab-settings">
+                <div class="settings-layout">
+                    <!-- Config Presets -->
+                    <div class="glass-card settings-card">
+                        <h3>Model & Prompt Presets</h3>
+                        <p class="settings-desc">Quickly configure the agent's behavior for specific content styles.</p>
+                        <div class="preset-buttons">
+                            <button class="preset-btn" onclick="applyPreset('viral_focused')">🔥 Viral Focused</button>
+                            <button class="preset-btn" onclick="applyPreset('educational_focused')">🎓 Educational Focused</button>
+                            <button class="preset-btn" onclick="applyPreset('creative')">🎨 Highly Creative</button>
+                            <button class="preset-btn" onclick="applyPreset('conservative')">🛡️ Conservative (Low Temp)</button>
+                        </div>
+                    </div>
+
+                    <!-- Environment settings -->
+                    <div class="glass-card settings-card">
+                        <h3>Environment Keys Check</h3>
+                        <div class="env-vars-checker" id="env-checker-list">
+                            <!-- Dynamic check -->
+                        </div>
+                    </div>
+
+                    <!-- Config Editor -->
+                    <div class="glass-card settings-card">
+                        <h3>Active Prompt Customizer</h3>
+                        <form id="settings-form" onsubmit="event.preventDefault(); saveSettings();">
+                            <div class="form-row">
+                                <div class="form-group half-width">
+                                    <label for="set-model-name">Gemini LLM Model</label>
+                                    <input type="text" id="set-model-name" required>
+                                </div>
+                                <div class="form-group half-width">
+                                    <label for="set-model-temp">Model Temp</label>
+                                    <input type="number" id="set-model-temp" step="0.1" min="0" max="1.5" required>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="set-reddit-prompt">Reddit Analyst System Prompt</label>
+                                <textarea id="set-reddit-prompt" rows="6" required></textarea>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="set-creator-prompt">Content Creator System Prompt</label>
+                                <textarea id="set-creator-prompt" rows="6" required></textarea>
+                            </div>
+
+                            <button type="submit" class="glowing-btn settings-save-btn">
+                                <span class="glowing-text">💾 Save System Settings</span>
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Log Purger -->
+                    <div class="glass-card settings-card border-danger">
+                        <h3>Danger Zone</h3>
+                        <p class="danger-desc">This action clears all the generated database activity logs. You cannot undo it.</p>
+                        <button class="danger-btn" onclick="clearSystemLogs()">🗑️ Purge Log Database</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- LOG DETAIL MODAL -->
+    <div class="modal-overlay" id="log-modal" onclick="closeLogModal(event)">
+        <div class="glass-card modal-container">
+            <div class="modal-header">
+                <h3 id="modal-log-title">Log Entry Details</h3>
+                <button class="modal-close-btn" onclick="document.getElementById('log-modal').classList.remove('active')">✕</button>
+            </div>
+            <div class="modal-body" id="modal-log-content">
+                <!-- Dynamic detail -->
+            </div>
+        </div>
+    </div>
+    
+    <script src="app.js"></script>
+</body>
+</html>
