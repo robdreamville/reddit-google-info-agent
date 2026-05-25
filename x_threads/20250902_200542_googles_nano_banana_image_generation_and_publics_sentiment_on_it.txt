@@ -1,0 +1,1 @@
+Error generating X thread: Missing required variable 'tone_description' for prompt 'x_thread_generation_prompt'

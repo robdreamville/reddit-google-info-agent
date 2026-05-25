@@ -198,7 +198,6 @@
                                 <input type="text" id="gen-duration" placeholder="e.g., 30-60s or 1-3min">
                             </div>
 
-                            <!-- Advanced Accordion -->
                             <div class="accordion-container">
                                 <button type="button" class="accordion-header" id="btn-toggle-tweaks" onclick="toggleAccordion()">
                                     <span>⚙️ Advanced Tweak Controls</span>
@@ -206,10 +205,13 @@
                                 </button>
                                 <div class="accordion-content" id="tweak-controls-panel">
                                     <div class="form-group">
+                                        <label for="gen-target-audience">Target Audience</label>
+                                        <input type="text" id="gen-target-audience" placeholder="e.g., general, students, professionals">
+                                    </div>
+                                    <div class="form-group">
                                         <label for="gen-temp">LLM Temperature Override: <span id="temp-val">Default</span></label>
                                         <input type="range" id="gen-temp" min="0.1" max="1.0" step="0.05" value="0.7" oninput="updateTempVal(this.value)">
                                     </div>
-                                    
                                     <div class="form-group">
                                         <label for="gen-custom-notes">Custom Instructions / Topic Tweaks</label>
                                         <textarea id="gen-custom-notes" rows="3" placeholder="e.g., Focus on local community opinions. Keep it mysterious. Mention the recent tweet by Musk."></textarea>
@@ -262,16 +264,26 @@
             <div class="tab-content" id="tab-history">
                 <div class="glass-card history-container">
                     <div class="history-filters">
-                        <div class="search-box">
-                            <span class="search-icon">🔍</span>
-                            <input type="text" id="history-search" placeholder="Search topic..." oninput="filterHistory()">
+                        <div class="filter-group">
+                            <label for="history-topic-search">Topic</label>
+                            <input type="text" id="history-topic-search" placeholder="Search by topic..." oninput="filterHistory()">
                         </div>
-                        <div class="select-box">
-                            <select id="history-filter-type" onchange="filterHistory()">
-                                <option value="all">All Logs</option>
-                                <option value="content_creation">Content Creations</option>
-                                <option value="research">Research Calls</option>
-                                <option value="error">Errors</option>
+                        <div class="filter-group">
+                            <label for="history-platform-filter">Platform</label>
+                            <select id="history-platform-filter" onchange="filterHistory()">
+                                <option value="all">All</option>
+                                <option value="youtube">YouTube</option>
+                                <option value="tiktok">TikTok</option>
+                                <option value="article">Article</option>
+                                <option value="x">X</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label for="history-status-filter">Status</label>
+                            <select id="history-status-filter" onchange="filterHistory()">
+                                <option value="all">All</option>
+                                <option value="success">Success</option>
+                                <option value="failed">Failed</option>
                             </select>
                         </div>
                     </div>
@@ -330,8 +342,9 @@
                                     <input type="text" id="set-model-name" required>
                                 </div>
                                 <div class="form-group half-width">
-                                    <label for="set-model-temp">Model Temp</label>
-                                    <input type="number" id="set-model-temp" step="0.1" min="0" max="1.5" required>
+                                    <label for="set-model-temp">Model Temperature</label>
+                                    <input type="range" id="set-model-temp" min="0.0" max="1.5" step="0.05" value="0.7" oninput="updateModelTempDisplay(this.value)">
+                                    <div class="range-label">Current: <span id="model-temp-val">0.7</span></div>
                                 </div>
                             </div>
                             

@@ -5,6 +5,7 @@ from typing import List, Optional, Dict, Any
 import asyncio
 import json
 import threading
+from pathlib import Path
 
 from app.core.config import (
     load_app_config, save_app_config, update_agent_config, apply_preset
@@ -67,9 +68,77 @@ def apply_config_preset(preset_name: str):
         raise HTTPException(status_code=404, detail=str(e))
 
 @router.get("/logs")
-def get_logs(log_type: Optional[str] = None, limit: Optional[int] = 50):
-    """Fetch history logs."""
-    return logger.get_logs(log_type=log_type, limit=limit)
+def get_logs(
+    log_type: Optional[str] = None, 
+    limit: Optional[int] = 200,
+    topic: Optional[str] = None,
+    platform: Optional[str] = None,
+    status: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None
+):
+    """Fetch history logs with optional filters."""
+    logs = logger.get_logs(
+        log_type=log_type, 
+        limit=None, # We'll limit after filtering
+        start_date=start_date,
+        end_date=end_date
+    )
+    
+    # Filter content creation logs based on query parameters
+    if log_type == "content_creation":
+        if topic:
+            logs = [l for l in logs if topic.lower() in l.get("data", {}).get("topic", "").lower()]
+        
+        if platform and platform != "all":
+            logs = [l for l in logs if platform in l.get("data", {}).get("platforms", [])]
+
+        if status and status != "all":
+            is_success = (status == "success")
+            logs = [l for l in logs if l.get("data", {}).get("success") == is_success]
+    
+    # Process files and apply limit *after* filtering
+    processed_logs = []
+    base_dir = Path(__file__).resolve().parents[2]
+    
+    for log in logs:
+        if log.get("log_type") == "content_creation":
+            data = log.get("data", {})
+            files_saved = data.get("files_saved", [])
+            platforms_list = data.get("platforms", [])
+            content_payload = {}
+
+            for i, item in enumerate(files_saved):
+                try:
+                    file_path_str = None
+                    if isinstance(item, str):
+                        prefix = "Successfully saved content to "
+                        if item.startswith(prefix):
+                            file_path_str = item[len(prefix):].strip()
+                        else:
+                            file_path_str = item.strip()
+                    
+                    if not file_path_str:
+                        continue
+
+                    file_path_obj = Path(file_path_str)
+                    if not file_path_obj.is_absolute():
+                        file_path_obj = base_dir / file_path_obj
+                    
+                    if file_path_obj.exists() and i < len(platforms_list):
+                        platform = platforms_list[i]
+                        content_payload[platform] = file_path_obj.read_text(encoding='utf-8', errors='ignore')
+                
+                except Exception as e:
+                    print(f"Could not read or process log file entry: {item}, Error: {e}")
+                    continue
+            
+            if content_payload:
+                data["generated_content"] = content_payload
+
+        processed_logs.append(log)
+
+    return processed_logs[:limit]
 
 @router.delete("/logs")
 def clear_logs():
@@ -110,6 +179,8 @@ async def generate_content_stream(
     content_type: str = "educational",
     duration: Optional[str] = None,
     tone: str = "engaging",
+    target_audience: str = "general",
+    output_format: str = "platform-native",
     custom_instructions: Optional[str] = None,
     temperature: Optional[float] = None,
     system_prompt: Optional[str] = None
@@ -141,6 +212,8 @@ async def generate_content_stream(
                 content_type=content_type,
                 duration=duration,
                 tone=tone,
+                target_audience=target_audience,
+                output_format=output_format,
                 custom_instructions=custom_instructions,
                 temperature_override=temperature,
                 system_prompt_override=system_prompt,

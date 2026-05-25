@@ -917,6 +917,19 @@ input[type="range"]::-webkit-slider-thumb:hover {
 .history-filters {
     display: flex;
     gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.modal-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.range-label {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    margin-top: 0.4rem;
 }
 
 .search-box {

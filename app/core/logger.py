@@ -3,7 +3,7 @@ import os
 import uuid
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional, List
-from app.schemas.log_schemas import LogEntry
+from app.schemas.log_schemas import LogEntry, ContentCreationData
 
 class AppLogger:
     """Central Pydantic-powered logging system for agent runs and tool metrics."""
@@ -31,6 +31,13 @@ class AppLogger:
                         logs = json.load(f)
                 except Exception:
                     logs = []
+
+            # Validate content creation data if applicable
+            if log_type == 'content_creation' and isinstance(data, dict):
+                try:
+                    data = ContentCreationData.model_validate(data).model_dump()
+                except Exception as e:
+                    print(f"Content creation data validation failed: {e}")
 
             # Create Pydantic log entry
             log_entry = LogEntry(

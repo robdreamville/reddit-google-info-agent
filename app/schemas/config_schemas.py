@@ -45,6 +45,8 @@ class ContentCreatorConfig(BaseModel):
     output_paths: Dict[str, str] = Field(default_factory=dict)
     content_types: Dict[str, ContentTypeSpec] = Field(default_factory=dict)
     tone_settings: Dict[str, str] = Field(default_factory=dict)
+    audience_settings: Dict[str, str] = Field(default_factory=dict)
+    output_formats: Dict[str, str] = Field(default_factory=dict)
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
 
 class SharedConfig(BaseModel):

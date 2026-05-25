@@ -267,11 +267,16 @@ function updateTempVal(val) {
     document.getElementById('temp-val').innerText = val;
 }
 
+function updateModelTempDisplay(val) {
+    document.getElementById('model-temp-val').innerText = val;
+}
+
 async function startGeneration() {
     const topic = document.getElementById('gen-topic').value.trim();
     const content_type = document.getElementById('gen-content-type').value;
     const tone = document.getElementById('gen-tone').value;
     const duration = document.getElementById('gen-duration').value.trim();
+    const target_audience = document.getElementById('gen-target-audience').value.trim() || 'general';
     
     // Platforms selected
     const platforms = [];
@@ -304,7 +309,8 @@ async function startGeneration() {
         topic: topic,
         platforms: platforms.join(','),
         content_type: content_type,
-        tone: tone
+        tone: tone,
+        target_audience: target_audience
     });
     if (duration) params.append('duration', duration);
     if (custom_instructions) params.append('custom_instructions', custom_instructions);
@@ -592,59 +598,66 @@ Your main goal is to implement the actionable fix and address the critic's asses
     // For now, let the user click "Run Agent Engine" to confirm.
 }
 
-// =============================================================================
-// 4. LOG HISTORY & VIEWING DETAILS
-// =============================================================================
 let historyLogsCache = [];
+let currentLogDetail = null;
 
 async function loadHistoryLogs() {
+    // This function will now fetch all logs and let the frontend filter,
+    // but a more robust implementation would have the backend do the filtering.
+    // For this project, client-side filtering is sufficient.
     try {
-        const res = await fetch('/api/logs?limit=80');
+        const res = await fetch('/api/logs?log_type=content_creation&limit=200');
         const logs = await res.json();
         
         historyLogsCache = logs;
-        filterHistory();
+        renderHistoryTable(); // Render the full table initially
     } catch (e) {
         console.error('Failed to load history logs:', e);
     }
 }
 
 function filterHistory() {
-    const search = document.getElementById('history-search').value.toLowerCase();
-    const type = document.getElementById('history-filter-type').value;
+    // This function is now just a trigger to re-render the table
+    // The actual filtering happens inside renderHistoryTable
+    renderHistoryTable();
+}
+
+function renderHistoryTable() {
+    const topicSearch = document.getElementById('history-topic-search').value.toLowerCase();
+    const platformFilter = document.getElementById('history-platform-filter').value;
+    const statusFilter = document.getElementById('history-status-filter').value;
     const tbody = document.getElementById('full-history-table-body');
     
     const filtered = historyLogsCache.filter(log => {
-        const matchesSearch = JSON.stringify(log.data).toLowerCase().includes(search) || 
-                              log.session_id.toLowerCase().includes(search);
-        const matchesType = type === 'all' || log.log_type === type;
-        return matchesSearch && matchesType;
+        const data = log.data;
+
+        // Topic filter
+        const matchesTopic = data.topic.toLowerCase().includes(topicSearch);
+        
+        // Platform filter
+        const matchesPlatform = platformFilter === 'all' || (data.platforms && data.platforms.includes(platformFilter));
+
+        // Status filter
+        const matchesStatus = statusFilter === 'all' || (statusFilter === 'success' && data.success) || (statusFilter === 'failed' && !data.success);
+
+        return matchesTopic && matchesPlatform && matchesStatus;
     });
     
     if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No matching log files found.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">No matching log files found.</td></tr>`;
         return;
     }
     
     tbody.innerHTML = filtered.map(log => {
         const date = new Date(log.timestamp).toLocaleString();
-        let details = '';
-        
-        if (log.log_type === 'content_creation') {
-            details = `Generated content for <strong>${log.data.topic}</strong> (${(log.data.platforms || []).join(', ').toUpperCase()})`;
-        } else if (log.log_type === 'research') {
-            details = `Research brief: <strong>${log.data.topic}</strong> (Preview: ${escapeHtml(log.data.results_preview || '')})`;
-        } else if (log.log_type === 'error') {
-            details = `<span style="color:var(--neon-red);">[Error] ${escapeHtml(log.data.error || 'Exception thrown')}</span>`;
-        } else {
-            details = `Session metrics and execution log`;
-        }
+        const data = log.data;
+        const details = `Generated for <strong>${(data.platforms || []).join(', ').toUpperCase()}</strong>`;
         
         return `
             <tr>
                 <td>${date}</td>
-                <td><span class="badge ${log.log_type === 'error' ? 'failed' : 'success'}">${log.log_type.replace('_', ' ')}</span></td>
-                <td><code>${log.session_id}</code></td>
+                <td><span class="badge ${data.success ? 'success' : 'failed'}">${data.success ? 'Success' : 'Failed'}</span></td>
+                <td>${escapeHtml(data.topic)}</td>
                 <td>${details}</td>
                 <td>
                     <button class="btn-sm" onclick="showLogDetails(${JSON.stringify(log).replace(/"/g, '&quot;')})">Details</button>
@@ -652,6 +665,38 @@ function filterHistory() {
             </tr>
         `;
     }).join('');
+}
+
+function copyHistory() {
+    const tbody = document.getElementById('full-history-table-body');
+    const text = tbody.innerText;
+    navigator.clipboard.writeText(text).then(() => {
+        alert('Visible log history copied to clipboard!');
+    });
+}
+
+function exportHistory() {
+    const rows = Array.from(document.querySelectorAll('#full-history-table-body tr'));
+    if (rows.length === 0) {
+        alert('No data to export.');
+        return;
+    }
+    
+    const headers = ['Timestamp', 'Status', 'Topic', 'Details', 'Readability'];
+    const csvContent = [
+        headers.join(','),
+        ...rows.map(row => {
+            const cells = Array.from(row.querySelectorAll('td'));
+            // Extract text, escaping commas within cell data
+            return cells.map(cell => `"${cell.innerText.replace(/"/g, '""')}"`).join(',');
+        })
+    ].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'content_history_export.csv';
+    link.click();
 }
 
 function showLogDetails(log) {
@@ -695,20 +740,44 @@ function showLogDetails(log) {
             </div>
         `;
         
-        if (data.generated_content && data.generated_content.content) {
-            html += `<h4>Artifact Output Data:</h4><br>`;
-            Object.keys(data.generated_content.content).forEach(plat => {
-                html += `
-                    <div class="accordion-container active" style="margin-bottom:1rem;">
-                        <div class="accordion-header"><span>📱 ${plat.toUpperCase()}</span></div>
-                        <div class="accordion-content" style="max-height:unset; padding:1.25rem; background:rgba(0,0,0,0.25);">
-                            <pre style="white-space:pre-wrap; font-family:var(--font-body); font-size:0.95rem; line-height:1.45rem; color:var(--text-main);">
-                                ${JSON.stringify(data.generated_content.content[plat], null, 2)}
-                            </pre>
-                        </div>
-                    </div>
-                `;
+        if (data.files_saved && data.files_saved.length) {
+            html += `<div style="margin-bottom:1.5rem;"><strong>Saved file paths:</strong><ul style="margin:0.75rem 0 0 1rem;">`;
+            data.files_saved.forEach(path => {
+                html += `<li style="font-size:0.85rem; color:var(--text-muted);">${escapeHtml(path)}</li>`;
             });
+            html += `</ul></div>`;
+        }
+
+        if (data.generated_content && Object.keys(data.generated_content).length) {
+            const generatedData = data.generated_content;
+            let contentMap = generatedData;
+            if (typeof generatedData === 'object' && generatedData !== null && generatedData.content && typeof generatedData.content === 'object') {
+                contentMap = generatedData.content;
+            }
+
+            html += `
+                <div class="modal-actions" style="margin-bottom:1.5rem; display:flex; gap:0.8rem; flex-wrap:wrap;">
+                    <button class="btn-sm" onclick="copyCurrentLogContent()">📋 Copy Generated Content</button>
+                    <button class="btn-sm" onclick="downloadCurrentLogContent()">📄 Export Generated Content</button>
+                </div>
+                <h4>Generated Content Output</h4>
+            `;
+
+            if (typeof contentMap === 'string') {
+                html += `
+                    <pre style="white-space:pre-wrap; font-family:var(--font-body); font-size:0.95rem; line-height:1.45rem; color:var(--text-main); background:rgba(0,0,0,0.16); padding:1rem; border-radius:0.75rem; border:1px solid rgba(255,255,255,0.08);">${escapeHtml(contentMap)}</pre>
+                `;
+            } else {
+                Object.entries(contentMap).forEach(([plat, value]) => {
+                    const contentText = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+                    html += `
+                        <div style="margin-bottom:1.5rem;">
+                            <div style="font-weight:700; margin-bottom:0.5rem;">${plat.toUpperCase()}</div>
+                            <pre style="white-space:pre-wrap; font-family:var(--font-body); font-size:0.95rem; line-height:1.45rem; color:var(--text-main); background:rgba(0,0,0,0.16); padding:1rem; border-radius:0.75rem; border:1px solid rgba(255,255,255,0.08);">${escapeHtml(contentText)}</pre>
+                        </div>
+                    `;
+                });
+            }
         } else if (data.error) {
             html += `
                 <div class="critic-assessment trash">
@@ -726,8 +795,56 @@ function showLogDetails(log) {
         `;
     }
     
+    currentLogDetail = log;
     content.innerHTML = html;
     modal.classList.add('active');
+}
+
+function getCurrentLogGeneratedContent() {
+    if (!currentLogDetail || currentLogDetail.log_type !== 'content_creation') {
+        return '';
+    }
+
+    const contentData = currentLogDetail.data.generated_content || {};
+    if (typeof contentData === 'string') {
+        return contentData;
+    }
+
+    const entries = Object.entries(contentData).map(([platform, value]) => {
+        const contentText = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+        return `=== ${platform.toUpperCase()} ===\n${contentText}`;
+    });
+
+    return entries.join('\n\n');
+}
+
+function copyCurrentLogContent() {
+    const content = getCurrentLogGeneratedContent();
+    if (!content) {
+        alert('No generated content available to copy.');
+        return;
+    }
+
+    navigator.clipboard.writeText(content).then(() => {
+        alert('Generated content copied to clipboard!');
+    }).catch(() => {
+        alert('Unable to copy content. Please try again.');
+    });
+}
+
+function downloadCurrentLogContent() {
+    const content = getCurrentLogGeneratedContent();
+    if (!content) {
+        alert('No generated content available to export.');
+        return;
+    }
+
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    const datePart = new Date(currentLogDetail.timestamp).toISOString().replace(/[:.]/g, '-');
+    link.download = `generated_content_${datePart}.txt`;
+    link.click();
 }
 
 function closeLogModal(e) {
@@ -746,6 +863,7 @@ async function loadActiveConfig() {
         
         document.getElementById('set-model-name').value = data.content_creator.model.name;
         document.getElementById('set-model-temp').value = data.content_creator.model.temperature;
+        document.getElementById('model-temp-val').innerText = data.content_creator.model.temperature;
         document.getElementById('set-reddit-prompt').value = data.reddit_agent.system_prompt;
         document.getElementById('set-creator-prompt').value = data.content_creator.system_prompt;
     } catch (e) {

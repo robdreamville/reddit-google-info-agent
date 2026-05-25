@@ -62,6 +62,8 @@ Populate the output schema with details for each identified trend."""
 CONTENT_GENERATION_PROMPT = """# SCRIPT BRIEF
 - **Topic**: {topic}
 - **Platform**: {platform}
+- **Target Audience**: {target_audience}
+- **Format**: {output_format}
 - **Tone**: {tone_description}
 - **Duration**: {duration}
 - **Pacing**: {pace}
@@ -90,6 +92,8 @@ ARTICLE_GENERATION_PROMPT = """# TASK
 Write a complete, polished article based on the following details:
 
 - **Topic**: {topic}
+- **Target Audience**: {target_audience}
+- **Format**: {output_format}
 - **Tone**: {tone_description}
 - **Length**: {optimal_length}
 - **Style Guidelines**: {style}
@@ -108,6 +112,8 @@ Write a complete, polished article based on the following details:
 
 X_THREAD_GENERATION_PROMPT = """# X THREAD BRIEF
 - **Topic**: {topic}
+- **Target Audience**: {target_audience}
+- **Format**: {output_format}
 - **Tone**: {tone_description}
 - **Length**: {thread_length} posts
 

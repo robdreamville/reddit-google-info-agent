@@ -1,3 +1,4 @@
+from typing import Dict, Any
 from langchain_core.tools import tool
 from app.schemas.agent_schemas import (
     ResearchBrief, TrendReport, VideoScript, Article, XThread, ContentAnalysis
@@ -7,6 +8,7 @@ from app.core.logger import AppLogger
 from datetime import datetime
 import os
 import json
+import re
 
 _reddit_agent_instance = None
 _llm_cache = {}
@@ -108,7 +110,9 @@ def generate_platform_content(
     platform: str,
     research_summary: str,
     content_type: str = "educational",
-    tone: str = "engaging"
+    tone: str = "engaging",
+    target_audience: str = "general",
+    output_format: str = "platform-native content"
 ) -> str:
     """
     Generate ready-to-use script content for YouTube or TikTok videos.
@@ -144,6 +148,8 @@ def generate_platform_content(
             "content_generation_prompt",
             topic=topic,
             platform=platform.upper(),
+            target_audience=target_audience,
+            output_format=output_format,
             research_summary=research_summary,
             content_description=content_description,
             content_structure=content_structure,
@@ -170,7 +176,9 @@ def generate_article(
     research_summary: str,
     tone: str,
     style: str,
-    optimal_length: str
+    optimal_length: str,
+    target_audience: str = "general",
+    output_format: str = "article"
 ) -> str:
     """
     Generates a full article based on a topic and research brief.
@@ -193,6 +201,8 @@ def generate_article(
         prompt = get_tool_prompt(
             "article_generation_prompt",
             topic=topic,
+            target_audience=target_audience,
+            output_format=output_format,
             research_summary=research_summary,
             tone_description=tone_description,
             style=style,
@@ -214,7 +224,9 @@ def generate_x_thread(
     research_summary: str,
     tone: str,
     style: str,
-    thread_length: str
+    thread_length: str,
+    target_audience: str = "general",
+    output_format: str = "thread"
 ) -> str:
     """
     Generates an X (Twitter) thread based on a topic and research.
@@ -237,6 +249,8 @@ def generate_x_thread(
         prompt = get_tool_prompt(
             "x_thread_generation_prompt",
             topic=topic,
+            target_audience=target_audience,
+            output_format=output_format,
             research_summary=research_summary,
             tone_description=tone_description,
             style=style,
@@ -283,3 +297,101 @@ def analyze_content_performance(content_text: str, platform: str) -> str:
         
     except Exception as e:
         return json.dumps({"error": f"Error analyzing content: {str(e)}", "platform": platform})
+
+# =============================================================================
+# LOCAL QUALITY CHECK HELPERS
+# =============================================================================
+
+def check_for_explicit_content(text: str) -> Dict[str, Any]:
+    """Basic check for explicit keywords."""
+    # This is a simplistic implementation. A real-world solution would use a more
+    # sophisticated library or API for content moderation.
+    blocklist = [
+        "profanity", "hate_speech_example", "sensitive_topic" 
+        # Extend with a more comprehensive list in a real application
+    ]
+    found_words = [word for word in blocklist if re.search(r'\b' + word + r'\b', text, re.IGNORECASE)]
+    
+    if found_words:
+        return {
+            "passed": False,
+            "reason": "Contains explicit or sensitive keywords",
+            "details": found_words
+        }
+    return {"passed": True}
+
+def check_factuality(text: str) -> Dict[str, Any]:
+    """Basic heuristic for factuality by checking for placeholder text."""
+    # This is a very basic heuristic. A robust solution would involve fact-checking APIs.
+    placeholders = [
+        "[insert fact here]", "[citation needed]", "[source?]", "fact to be confirmed"
+    ]
+    found_placeholders = [p for p in placeholders if p in text.lower()]
+    
+    if found_placeholders:
+        return {
+            "passed": False,
+            "reason": "Contains placeholder text suggesting unverified facts",
+            "details": found_placeholders
+        }
+    return {"passed": True}
+
+def calculate_readability_score(text: str) -> Dict[str, Any]:
+    """Calculate readability score using available textstat APIs."""
+    try:
+        import textstat
+        score_func = getattr(textstat, 'flesch_reading_ease', None)
+        if score_func is None:
+            score_func = getattr(textstat, 'flesch_kincaid_grade', None)
+            if score_func is None:
+                raise AttributeError('textstat does not expose a supported readability function')
+
+        score = score_func(text)
+        if isinstance(score, str):
+            score = float(score)
+
+        if score >= 90:
+            grade = "Very Easy"
+        elif score >= 80:
+            grade = "Easy"
+        elif score >= 70:
+            grade = "Fairly Easy"
+        elif score >= 60:
+            grade = "Standard"
+        elif score >= 50:
+            grade = "Fairly Difficult"
+        elif score >= 30:
+            grade = "Difficult"
+        else:
+            grade = "Very Confusing"
+
+        return {
+            "passed": True,
+            "score": score,
+            "grade": grade
+        }
+    except Exception as e:
+        return {
+            "passed": False,
+            "reason": f"Could not calculate readability: {str(e)}"
+        }
+
+@tool
+def run_quality_checks(content_text: str) -> str:
+    """
+    Run a suite of quality checks on the generated content.
+    Includes explicit content detection, factuality heuristics, and readability scoring.
+    
+    Args:
+        content_text: The text content to analyze.
+        
+    Returns:
+        A serialized JSON object with the results of all quality checks.
+    """
+    results = {
+        "explicit_content": check_for_explicit_content(content_text),
+        "factuality_heuristic": check_factuality(content_text),
+        "readability": calculate_readability_score(content_text)
+    }
+    
+    return json.dumps(results, indent=2)

@@ -90,6 +90,18 @@ DEFAULT_CONTENT_CREATOR_CONFIG = ContentCreatorConfig(
         "suspenseful": "Create a sense of dread and anticipation. Use evocative, atmospheric language, short, tense sentences, and reveal information slowly to build suspense and unease.",
         "horror": "Evoke fear, dread, and unease. Use vivid, eerie descriptions, unsettling imagery, and a darker, slower pacing. The language should be chilling, immersive, and provoke a visceral reaction, leaving the audience disturbed or spooked."
     },
+    audience_settings={
+        "general": "Write for a broad general audience with clear, accessible explanations.",
+        "beginners": "Write for people who are new to the topic and need step-by-step clarity.",
+        "enthusiasts": "Write for interested readers who already know some basics and want a richer take.",
+        "professionals": "Write for experienced readers or professionals, with precision and confidence."
+    },
+    output_formats={
+        "article": "a long-form article",
+        "newsletter": "a concise newsletter-style update",
+        "thread": "an engaging X thread",
+        "social": "a short social media post"
+    },
     logging=LoggingConfig(
         enabled=True, log_file="content_creator_logs.json",
         log_errors=False, separate_error_log=True, error_log_file="content_creator_errors.json"

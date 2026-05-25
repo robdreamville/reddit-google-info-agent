@@ -14,6 +14,7 @@ from app.tools.content_tools import (
     generate_article,
     generate_x_thread,
     analyze_content_performance,
+    run_quality_checks,
     get_llm
 )
 from app.tools.base_tools import save_content_to_file
@@ -43,6 +44,8 @@ class ContentCreatorAgent:
         content_type: str = "educational",
         duration: Optional[str] = None,
         tone: str = "engaging",
+        target_audience: str = "general",
+        output_format: str = "platform-native",
         custom_instructions: Optional[str] = None,
         temperature_override: Optional[float] = None,
         system_prompt_override: Optional[str] = None,
@@ -75,10 +78,14 @@ class ContentCreatorAgent:
             "content_type": content_type,
             "duration": duration,
             "tone": tone,
+            "target_audience": target_audience,
+            "output_format": output_format,
             "custom_instructions": custom_instructions,
             "temperature": temp,
             "tool_calls": [],
             "files_saved": [],
+            "generated_content": {},
+            "quality_checks": {},
             "token_usage": 0,
             "latency": None,
             "success": False,
@@ -89,9 +96,12 @@ class ContentCreatorAgent:
             "topic": topic,
             "content_type": content_type,
             "tone": tone,
+            "target_audience": target_audience,
+            "output_format": output_format,
             "generated_at": datetime_now_iso(),
             "content": {},
             "analyses": {},
+            "quality_checks": {},
             "files": {},
             "success": False
         }
@@ -145,7 +155,9 @@ class ContentCreatorAgent:
                         "platform": plat_lower,
                         "research_summary": research_summary_to_use,
                         "content_type": content_type,
-                        "tone": tone
+                        "tone": tone,
+                        "target_audience": target_audience,
+                        "output_format": output_format
                     })
                     
                     # Validate via Pydantic & format a nice display string
@@ -179,7 +191,9 @@ class ContentCreatorAgent:
                         "research_summary": research_summary_to_use,
                         "tone": tone,
                         "style": style,
-                        "optimal_length": opt_len
+                        "optimal_length": opt_len,
+                        "target_audience": target_audience,
+                        "output_format": output_format
                     })
                     
                     try:
@@ -212,7 +226,9 @@ class ContentCreatorAgent:
                         "research_summary": research_summary_to_use,
                         "tone": tone,
                         "style": style,
-                        "thread_length": thread_len
+                        "thread_length": thread_len,
+                        "target_audience": target_audience,
+                        "output_format": output_format
                     })
                     
                     try:
@@ -248,6 +264,7 @@ class ContentCreatorAgent:
                 
                 final_result["files"][plat_lower] = save_path
                 run_log["files_saved"].append(save_path)
+                run_log["generated_content"][plat_lower] = pretty_text
                 
                 # Step 3: Analyze content performance
                 notify_step(f"🧐 Evaluating content quality and performance potential...")
@@ -261,6 +278,12 @@ class ContentCreatorAgent:
                     final_result["analyses"][plat_lower] = parsed_analysis.model_dump()
                 except Exception:
                     final_result["analyses"][plat_lower] = {"raw_output": analysis_json}
+
+                # Step 4: Run local quality checks and readability scoring
+                quality_report_json = run_quality_checks.invoke({"content_text": pretty_text})
+                quality_report = json.loads(quality_report_json)
+                run_log["quality_checks"][plat_lower] = quality_report
+                final_result["quality_checks"][plat_lower] = quality_report
 
             final_result["success"] = True
             run_log["success"] = True
