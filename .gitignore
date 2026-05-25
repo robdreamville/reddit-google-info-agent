@@ -10,5 +10,11 @@ venv/
 logs/
 *.jsonl
 
+# Run output and temporary data
+articles/
+x_threads/
+output/
+content/
+
 # VSCode
 .vscode/
