@@ -75,5 +75,5 @@ Navigate to `http://127.0.0.1:8000` in your browser to access the dashboard.
 
 ## About Me
 *   **Name**: Roberto Galdamez
-*   **LinkedIn**: [\[Your LinkedIn Profile URL\]](https://www.linkedin.com/in/roberto-galdamez/)
-*   **Portfolio**: [\[Your Portfolio URL\]](https://rgportfolio.pythonanywhere.com/)
+*   **LinkedIn**: https://www.linkedin.com/in/roberto-galdamez/
+*   **Portfolio**: https://rgportfolio.pythonanywhere.com/
