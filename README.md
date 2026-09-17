@@ -74,7 +74,6 @@ Navigate to `http://127.0.0.1:8000` in your browser to access the dashboard.
 - **Change Config**: Adjust default behaviors, model names, and presets in `config/app_config.py`.
 
 ## About Me
-*   **Name**: [Your Name]
-*   **LinkedIn**: [Your LinkedIn Profile URL]
-*   **GitHub**: [Your GitHub Profile URL]
-*   **Portfolio**: [Your Portfolio URL]
+*   **Name**: Roberto Galdamez
+*   **LinkedIn**: [\[Your LinkedIn Profile URL\]](https://www.linkedin.com/in/roberto-galdamez/)
+*   **Portfolio**: [\[Your Portfolio URL\]](https://rgportfolio.pythonanywhere.com/)
